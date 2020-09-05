@@ -1,25 +1,34 @@
 async function dedupTabs() {
   let tabs = await queryTabs({currentWindow: true})
-  let urls = new Set()
+  let urls = new Map()
   for (let t of tabs) {
-    if (t.highlighted || t.active || t.pinned) {
-      urls.add(t.url)
+    let u = normalizeUrl(t.url)
+    let ts = urls.get(u)
+    if (!ts) {
+      ts = []
+      urls.set(u, ts)
     }
+    ts.push(t)
   }
   let dup = []
-  for (let t of tabs) {
-    if (t.highlighted || t.active || t.pinned) {
-      continue
-    }
-    if (urls.has(t.url)) {
-      dup.push(t.id)
-      continue
-    }
-    urls.add(t.url)
+  for (let ts of urls.values()) {
+    // keep highlight etc.
+    // keep the shortest
+    let x = ts
+        .filter(a => !(a.highlighted || a.active || a.pinned))
+        .sort((a, b) => a.url.length - b.url.length)
+        .slice(1)
+        .map(a => a.id)
+    dup.push(...x)
   }
-  if (dup) {
+  if (dup.length > 0) {
     chrome.tabs.remove(dup)
   }
+}
+
+function normalizeUrl(url) {
+  let a = new URL(url)
+  return `${a.protocol}//${a.host}${a.pathname}${a.search}`
 }
 
 function currentWin() {
