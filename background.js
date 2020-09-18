@@ -10,16 +10,27 @@ async function dedupTabs() {
     }
     ts.push(t)
   }
+
+  function keep(t) {
+    return t.highlighted || t.active || t.pinned
+  }
+
   let dup = []
   for (let ts of urls.values()) {
     // keep highlight etc.
     // keep the shortest
-    let x = ts
-        .filter(a => !(a.highlighted || a.active || a.pinned))
-        .sort((a, b) => a.url.length - b.url.length)
-        .slice(1)
-        .map(a => a.id)
-    dup.push(...x)
+    let x = ts.sort((a, b) => {
+      let i = keep(a) ? -1 : a.url.length
+      let j = keep(b) ? -1 : b.url.length
+      return i - j
+    })
+    for (let i = 1; i < x.length; i++) {
+      if (keep(x[i])) {
+        continue
+      }
+      dup.push(...x.slice(i).map(a => a.id))
+      break
+    }
   }
   if (dup.length > 0) {
     chrome.tabs.remove(dup)
